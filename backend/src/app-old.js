@@ -31,8 +31,10 @@ app.get('/api/health', (req, res) => {
 });
 
 //import routes
+import userRouter from "./routes/user.routes.js"
 import authRouter from "./routes/auth.routes.js"
 
+app.use("/api/users", userRouter)
 app.use("/api/auth", authRouter)
 
 // Global error handler
@@ -53,7 +55,7 @@ app.use((err, req, res, next) => {
 });
 
 // 404 handler
-app.use((req, res) => {
+app.use('*', (req, res) => {
   res.status(404).json({
     success: false,
     message: 'Route not found'
