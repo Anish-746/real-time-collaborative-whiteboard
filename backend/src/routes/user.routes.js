@@ -11,13 +11,5 @@ router.get('/health', (req, res) => {
   });
 });
 
-// Placeholder routes (to be implemented)
-router.post('/register', (req, res) => {
-  res.json({ message: 'Register endpoint - coming soon' });
-});
-
-router.post('/login', (req, res) => {
-  res.json({ message: 'Login endpoint - coming soon' });
-});
 
 export default router;
