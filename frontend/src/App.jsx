@@ -1,12 +1,12 @@
-import React from 'react';
-import Board from './components/Whiteboard/Board';
+import { Route, Routes } from "react-router-dom";
+import Board from "./components/Whiteboard/Board";
 
-function App() {
+const App = () => {
   return (
-    <div className="App">
-      <Board />
-    </div>
+    <Routes>
+      <Route path="/" element={<Board />} />
+    </Routes>
   );
-}
+};
 
 export default App;
