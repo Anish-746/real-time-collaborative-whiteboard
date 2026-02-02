@@ -59,7 +59,7 @@ export const optionalAuth = asyncHandler(async (req, res, next) => {
 export const validateRequest = asyncHandler(async (req, res, next) => {
   const errors = validationResult(req);
   if (!errors.isEmpty()) {
-    throw new ApiError(400, 'Validation failed', errors.array());
+    throw new ApiError(400, errors.array()[0].msg, errors.array());
   }
   next();
 });

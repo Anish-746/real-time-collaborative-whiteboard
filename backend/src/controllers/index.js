@@ -33,10 +33,10 @@ export const registerUser = asyncHandler(async (req, res) => {
   const tokens = generateTokenPair(newUser.id);
   
   res.status(201).json(
-    new ApiResponse(201, {
+    new ApiResponse({
       user: newUser,
       ...tokens
-    }, 'User registered successfully')
+    }, 201, 'User registered successfully')
   );
 });
 
@@ -70,10 +70,10 @@ export const loginUser = asyncHandler(async (req, res) => {
   const { password: _, ...userWithoutPassword } = user;
   
   res.status(200).json(
-    new ApiResponse(200, {
+    new ApiResponse({
       user: userWithoutPassword,
       ...tokens
-    }, 'Login successful')
+    }, 200, 'Login successful')
   );
 });
 
@@ -100,7 +100,7 @@ export const refreshToken = asyncHandler(async (req, res) => {
     const tokens = generateTokenPair(user.id);
     
     res.status(200).json(
-      new ApiResponse(200, tokens, 'Token refreshed successfully')
+      new ApiResponse(tokens, 200, 'Token refreshed successfully')
     );
   } catch (error) {
     throw new ApiError(401, 'Invalid or expired refresh token');
@@ -112,7 +112,7 @@ export const getCurrentUser = asyncHandler(async (req, res) => {
   const { password: _, ...userWithoutPassword } = req.user;
   
   res.status(200).json(
-    new ApiResponse(200, { user: userWithoutPassword }, 'User profile retrieved successfully')
+    new ApiResponse({ user: userWithoutPassword }, 200, 'User profile retrieved successfully')
   );
 });
 
@@ -120,7 +120,7 @@ export const getCurrentUser = asyncHandler(async (req, res) => {
 export const logoutUser = asyncHandler(async (req, res) => {
   // In a more advanced setup, you could blacklist the token here
   res.status(200).json(
-    new ApiResponse(200, null, 'Logout successful')
+    new ApiResponse(null, 200, 'Logout successful')
   );
 });
 
@@ -144,6 +144,6 @@ export const updateProfile = asyncHandler(async (req, res) => {
   if (error) throw new ApiError(500, 'Failed to update profile');
   
   res.status(200).json(
-    new ApiResponse(200, { user: data }, 'Profile updated successfully')
+    new ApiResponse({ user: data }, 200, 'Profile updated successfully')
   );
 });
