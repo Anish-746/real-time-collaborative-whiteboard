@@ -1,26 +1,69 @@
-import { Route, Routes } from "react-router-dom";
-import Board from "./components/Whiteboard/Board";
-import Login from "./pages/auth/Login.jsx";
-import Signup from "./pages/auth/Signup.jsx";
-import { AuthProvider } from "./context/AuthProvider.jsx";
-import ProtectedRoute from "./pages/auth/ProtectedRoute.jsx";
-import Dashboard from "./pages/Dashboard.jsx";
-import Room from "./pages/Room.jsx";
+import { useState } from "react";
+import Login from "./pages/Login";
+import Signup from "./pages/Signup";
+import Profile from "./pages/Profile";
+import Dashboard from "./pages/Dashboard";
 
-const App = () => {
+export default function App() {
+  const [currentPage, setCurrentPage] = useState("login"); 
+  const [isLoggedIn, setIsLoggedIn] = useState(false);
+  const [user, setUser] = useState(null);
+
+  const handleLogin = (userData) => {
+    setUser(userData);
+    setIsLoggedIn(true);
+    setCurrentPage("dashboard");
+  };
+
+  const handleSignup = (userData) => {
+    if (userData) {
+      setUser(userData);
+      setIsLoggedIn(true);
+      setCurrentPage("dashboard"); 
+    } else {
+      setCurrentPage("login");
+    }
+  };
+
+  const handleLogout = () => {
+    setUser(null);
+    setIsLoggedIn(false);
+    setCurrentPage("login");
+  };
+
+  const goToSignup = () => {
+    setCurrentPage("signup");
+  };
+
+  const goToLogin = () => {
+    setCurrentPage("login");
+  };
+
+  const goToProfile = () => {
+    setCurrentPage("profile");
+  };
+
+  const goToDashboard = () => {
+    setCurrentPage("dashboard");
+  };
+
   return (
-    <AuthProvider>
-      <Routes>
-        <Route path="/login" element={<Login />} />
-        <Route path="/signup" element={<Signup />} />
-
-        <Route element={<ProtectedRoute />}>
-          <Route path="/" element={<Dashboard />} />
-          <Route path="/room/:roomId" element={<Room />} />
-        </Route>
-      </Routes>
-    </AuthProvider>
+    <div className="App">
+      {!isLoggedIn ? (
+        // Not logged in - show login or signup
+        currentPage === "signup" ? (
+          <Signup onSignup={handleSignup} />
+        ) : (
+          <Login onLogin={handleLogin} onGoToSignup={goToSignup} />
+        )
+      ) : (
+        // Logged in - show dashboard or profile
+        currentPage === "profile" ? (
+          <Profile user={user} onLogout={handleLogout} onGoToDashboard={goToDashboard} />
+        ) : (
+          <Dashboard user={user} onLogout={handleLogout} onGoToProfile={goToProfile} />
+        )
+      )}
+    </div>
   );
-};
-
-export default App;
+}
