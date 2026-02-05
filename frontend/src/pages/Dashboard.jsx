@@ -1,7 +1,10 @@
-import { useState } from "react";
+import { useState, useEffect } from "react";
+import { useNavigate } from "react-router-dom";
 import AuthLayout from "../layouts/AuthLayout";
 
-export default function Dashboard({ user, onLogout, onGoToProfile }) {
+export default function Dashboard() {
+  const navigate = useNavigate();
+  const [user, setUser] = useState(null);
   const [showCreateModal, setShowCreateModal] = useState(false);
   const [showJoinModal, setShowJoinModal] = useState(false);
   const [roomCode, setRoomCode] = useState("");
@@ -11,6 +14,20 @@ export default function Dashboard({ user, onLogout, onGoToProfile }) {
     isPublic: true,
     maxMembers: 10
   });
+
+  useEffect(() => {
+    // Get user from localStorage
+    const userData = localStorage.getItem("user");
+    if (userData) {
+      setUser(JSON.parse(userData));
+    }
+  }, []);
+
+  const handleLogout = () => {
+    localStorage.removeItem("isAuthenticated");
+    localStorage.removeItem("user");
+    navigate("/login");
+  };
 
   // Dummy rooms data
   const [myRooms] = useState([
@@ -81,24 +98,29 @@ export default function Dashboard({ user, onLogout, onGoToProfile }) {
   const handleJoinRoom = (e) => {
     e.preventDefault();
     if (roomCode.trim()) {
-      alert(`Joining room with code: ${roomCode}`);
+      // Navigate to room (you can create this route later)
+      navigate(`/room/${roomCode}`);
       setShowJoinModal(false);
       setRoomCode("");
     }
   };
 
   const handleQuickJoin = (code) => {
-    alert(`Joining room: ${code}`);
+    navigate(`/room/${code}`);
+  };
+
+  const handleEnterRoom = (code) => {
+    navigate(`/room/${code}`);
   };
 
   return (
     <AuthLayout>
       <div className="w-full max-w-6xl mx-auto p-4">
         {/* Header */}
-        <div className="bg-white border-3 border-black rounded-2xl p-6 shadow-[8px_8px_0_#000] mb-6">
-          <div className="flex items-center justify-between">
+        <div className="bg-white border-[3px] border-black rounded-2xl p-6 shadow-[8px_8px_0_#000] mb-6">
+          <div className="flex items-center justify-between flex-wrap gap-4">
             <div>
-              <h1 className="text-3xl font-bold mb-1 font-['Comic_Sans_MS',_cursive]">
+              <h1 className="text-3xl font-bold mb-1 font-[Comic_Sans_MS,cursive]">
                 Studio Dashboard 🎨
               </h1>
               <p className="text-gray-600">
@@ -106,16 +128,14 @@ export default function Dashboard({ user, onLogout, onGoToProfile }) {
               </p>
             </div>
             <div className="flex gap-3">
-              {onGoToProfile && (
-                <button
-                  onClick={onGoToProfile}
-                  className="px-4 py-2 bg-white border-2 border-black rounded-lg hover:bg-gray-50 active:scale-95 transition-all shadow-[3px_3px_0_#000]"
-                >
-                  View Profile 👤
-                </button>
-              )}
               <button
-                onClick={onLogout}
+                onClick={() => navigate("/profile")}
+                className="px-4 py-2 bg-white border-2 border-black rounded-lg hover:bg-gray-50 active:scale-95 transition-all shadow-[3px_3px_0_#000]"
+              >
+                View Profile 👤
+              </button>
+              <button
+                onClick={handleLogout}
                 className="px-4 py-2 bg-white border-2 border-black rounded-lg hover:bg-gray-50 active:scale-95 transition-all shadow-[3px_3px_0_#000]"
               >
                 Logout
@@ -193,7 +213,10 @@ export default function Dashboard({ user, onLogout, onGoToProfile }) {
                 <p className="text-xs text-gray-500 mb-3">Created {room.createdAt}</p>
 
                 <div className="flex gap-2">
-                  <button className="flex-1 bg-black text-white py-2 rounded-lg text-sm font-medium hover:bg-gray-800 active:scale-95 transition-all">
+                  <button 
+                    onClick={() => handleEnterRoom(room.code)}
+                    className="flex-1 bg-black text-white py-2 rounded-lg text-sm font-medium hover:bg-gray-800 active:scale-95 transition-all"
+                  >
                     Enter Room
                   </button>
                   <button className="px-4 py-2 bg-white border-2 border-black rounded-lg text-sm font-medium hover:bg-gray-50 active:scale-95 transition-all">
