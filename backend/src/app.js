@@ -32,8 +32,10 @@ app.get('/api/health', (req, res) => {
 
 //import routes
 import authRouter from "./routes/auth.routes.js"
+import roomRouter from "./routes/room.routes.js"
 
 app.use("/api/auth", authRouter)
+app.use("/api/rooms", roomRouter)
 
 // Global error handler
 app.use((err, req, res, next) => {
