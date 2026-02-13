@@ -34,10 +34,13 @@ CREATE INDEX IF NOT EXISTS idx_users_active ON users(is_active);
 CREATE TABLE IF NOT EXISTS rooms (
     id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
     name VARCHAR(100) NOT NULL,
+    short_code VARCHAR(10) UNIQUE NOT NULL,
     owner_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
     access_type VARCHAR(20) DEFAULT 'public' CHECK (access_type IN ('public', 'private', 'protected')),
     password_hash VARCHAR(255),
     max_users INTEGER DEFAULT 10,
+    is_active BOOLEAN DEFAULT true,
+    document BYTEA,
     created_at TIMESTAMPTZ DEFAULT NOW(),
     updated_at TIMESTAMPTZ DEFAULT NOW()
 );
@@ -45,6 +48,8 @@ CREATE TABLE IF NOT EXISTS rooms (
 -- Create indexes for rooms table
 CREATE INDEX IF NOT EXISTS idx_rooms_owner ON rooms(owner_id);
 CREATE INDEX IF NOT EXISTS idx_rooms_access ON rooms(access_type);
+CREATE INDEX IF NOT EXISTS idx_rooms_short_code ON rooms(short_code);
+CREATE INDEX IF NOT EXISTS idx_rooms_active ON rooms(is_active);
 
 -- =============================================
 -- ROOM USERS (Junction Table)
@@ -80,12 +85,52 @@ CREATE INDEX IF NOT EXISTS idx_operations_user ON operations(user_id);
 CREATE INDEX IF NOT EXISTS idx_operations_data ON operations USING gin(operation_data);
 
 -- =============================================
+-- FUNCTION: Generate random short code for rooms
+-- =============================================
+CREATE OR REPLACE FUNCTION generate_short_code()
+RETURNS TEXT AS $$
+DECLARE
+    chars TEXT := 'ABCDEFGHIJKLMNOPQRSTUVWXYZ0123456789';
+    result TEXT := '';
+    i INTEGER;
+    code_exists BOOLEAN := true;
+BEGIN
+    -- Keep generating until we get a unique code
+    WHILE code_exists LOOP
+        result := '';
+        -- Generate 8-character code
+        FOR i IN 1..8 LOOP
+            result := result || substr(chars, floor(random() * length(chars) + 1)::int, 1);
+        END LOOP;
+        
+        -- Check if code already exists
+        SELECT EXISTS(SELECT 1 FROM rooms WHERE short_code = result) INTO code_exists;
+    END LOOP;
+    
+    RETURN result;
+END;
+$$ language 'plpgsql';
+
+-- =============================================
 -- FUNCTION: Auto-update updated_at timestamp
 -- =============================================
 CREATE OR REPLACE FUNCTION update_updated_at_column()
 RETURNS TRIGGER AS $$
 BEGIN
     NEW.updated_at = NOW();
+    RETURN NEW;
+END;
+$$ language 'plpgsql';
+
+-- =============================================
+-- FUNCTION: Set short code on room creation
+-- =============================================
+CREATE OR REPLACE FUNCTION set_room_short_code()
+RETURNS TRIGGER AS $$
+BEGIN
+    IF NEW.short_code IS NULL OR NEW.short_code = '' THEN
+        NEW.short_code = generate_short_code();
+    END IF;
     RETURN NEW;
 END;
 $$ language 'plpgsql';
@@ -104,6 +149,12 @@ CREATE TRIGGER update_rooms_updated_at
     BEFORE UPDATE ON rooms 
     FOR EACH ROW 
     EXECUTE FUNCTION update_updated_at_column();
+
+DROP TRIGGER IF EXISTS trigger_set_room_short_code ON rooms;
+CREATE TRIGGER trigger_set_room_short_code
+    BEFORE INSERT ON rooms
+    FOR EACH ROW
+    EXECUTE FUNCTION set_room_short_code();
 
 -- =============================================
 -- ROW LEVEL SECURITY (RLS) Policies

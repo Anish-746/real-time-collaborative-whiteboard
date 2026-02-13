@@ -1,13 +1,14 @@
-import { useState, useRef, useEffect } from "react";
+import { useState, useRef, useEffect, useContext } from "react";
 import * as Y from "yjs";
 import { v4 as uuidv4 } from "uuid";
+import WhiteboardContext from "../context/WhiteboardContext.jsx";
+import { useCallback } from "react";
 
 export const TOOLS = {
   SELECT: "select",
   PEN: "pen",
   ERASER: "eraser",
   TEXT: "text",
-  // Shapes
   RECTANGLE: "rectangle",
   CIRCLE: "circle",
   ARROW: "arrow",
@@ -28,37 +29,40 @@ export const SHAPE_TOOLS = [
 ];
 
 export const useWhiteboard = (doc) => {
-  const [tool, setTool] = useState(TOOLS.PEN);
+  const { tool, strokeColor, fillColor, strokeWidth } =
+    useContext(WhiteboardContext);
 
   const [elements, setElements] = useState([]);
-
-  // Style State
-  const [strokeColor, setStrokeColor] = useState("#000000");
-  const [fillColor, setFillColor] = useState("transparent");
-  const [strokeWidth, setStrokeWidth] = useState(2);
-
-  // Canvas Transform State
-  const [stageScale, setStageScale] = useState(1);
   const [stagePos, setStagePos] = useState({ x: 0, y: 0 });
-
-  // Selection State
   const [selectedId, setSelectedId] = useState(null);
 
   const isDrawing = useRef(false);
   const currentShapeId = useRef(null);
+  const undoManager = useRef(null);
 
-  // --- YJS SYNC LOGIC ---
+  // YJS SYNC LOGIC
   useEffect(() => {
     if (!doc) return;
 
-    const yElements = doc.getArray("elements");
+    const yElements = doc.getMap("elements");
 
-    // 1. Initial Load
-    setElements(yElements.toArray());
+    if (!undoManager.current) {
+      undoManager.current = new Y.UndoManager(yElements, {
+        captureTimeout: 10000,
+      });
+    }
 
-    // 2. Listen for remote changes
+    const updateState = () => {
+      const arr = Array.from(yElements.values());
+      //sorting so that older items are on back and newer items are on top
+      arr.sort((a, b) => a.createdAt - b.createdAt);
+      setElements(arr);
+    };
+
+    updateState();
+
     const observer = () => {
-      setElements(yElements.toArray());
+      updateState();
     };
 
     yElements.observe(observer);
@@ -66,52 +70,48 @@ export const useWhiteboard = (doc) => {
     return () => yElements.unobserve(observer);
   }, [doc]);
 
-  // Helper to update a specific element in Yjs
-  const updateElementInYjs = (id, updates) => {
-    if (!doc) return;
-    const yElements = doc.getArray("elements");
+  const undo = useCallback(() => {
+    undoManager.current?.undo();
+  }, []);
 
-    // Yjs arrays are not indexed by ID, so we find the index
-    // Note: For 1000+ items, a Y.Map is better, but Array is fine for now
-    let index = -1;
-    const currentArray = yElements.toArray();
-    for (let i = 0; i < currentArray.length; i++) {
-      if (currentArray[i].id === id) {
-        index = i;
-        break;
+  const redo = useCallback(() => {
+    undoManager.current?.redo();
+  }, []);
+
+  const updateElementInYjs = useCallback(
+    (id, updates) => {
+      if (!doc) return;
+      const yElements = doc.getMap("elements");
+
+      const existing = yElements.get(id);
+
+      if (existing) {
+        const updated = { ...existing, ...updates };
+        doc.transact(() => {
+          yElements.set(id, updated);
+        });
       }
-    }
+    },
+    [doc],
+  );
 
-    if (index !== -1) {
-      // We must delete and re-insert to update object in Y.Array
-      // Or use Y.Map for elements if we want property-level granularity
-      const existing = currentArray[index];
-      const updated = { ...existing, ...updates };
-
-      doc.transact(() => {
-        yElements.delete(index, 1);
-        yElements.insert(index, [updated]);
-      });
-    }
-  };
-
-  // Helper to add element
   const addElementToYjs = (element) => {
     if (!doc) return;
-    doc.getArray("elements").push([element]);
+
+    const newElement = { ...element, createdAt: Date.now() };
+    doc.getMap("elements").set(element.id, newElement);
   };
 
-  // Helper to remove element
-  const removeElementFromYjs = (id) => {
-    if (!doc) return;
-    const yElements = doc.getArray("elements");
-    const index = yElements.toArray().findIndex((el) => el.id === id);
-    if (index !== -1) {
-      yElements.delete(index, 1);
-    }
-  };
+  const removeElementFromYjs = useCallback(
+    (id) => {
+      if (!doc) return;
 
-  // Helper to get pointer position relative to stage transform
+      doc.getMap("elements").delete(id);
+    },
+    [doc],
+  );
+
+  // Get pointer position relative to stage transform
   const getRelativePointerPosition = (stage) => {
     const pointer = stage.getPointerPosition();
     if (!pointer) return null;
@@ -120,12 +120,19 @@ export const useWhiteboard = (doc) => {
     return transform.point(pointer);
   };
 
-  const removeElement = (id) => {
-    removeElementFromYjs(id);
-    if (selectedId === id) setSelectedId(null);
-  };
+  const removeElement = useCallback(
+    (id) => {
+      undoManager.current?.stopCapturing();
+      removeElementFromYjs(id);
+      undoManager.current?.stopCapturing();
+
+      if (selectedId === id) setSelectedId(null);
+    },
+    [removeElementFromYjs, selectedId],
+  );
 
   const addTextElement = (text, x, y) => {
+    undoManager.current?.stopCapturing();
     const id = uuidv4();
     const newElement = {
       id,
@@ -134,32 +141,32 @@ export const useWhiteboard = (doc) => {
       x,
       y,
       stroke: strokeColor,
-      fontSize: 20, // Fixed font size, scaling handled by Stage
+      fontSize: 20,
       fill: strokeColor,
     };
     addElementToYjs(newElement);
+    undoManager.current?.stopCapturing();
   };
 
   const handleMouseDown = (e) => {
     if (!doc) return;
+
+    //separate previous actions before starting new one
+    undoManager.current?.stopCapturing();
+
     const stage = e.target.getStage();
     const pos = getRelativePointerPosition(stage);
 
-    // 1. SELECT Tool Logic
     if (tool === TOOLS.SELECT) {
       const clickedOn = e.target;
       if (clickedOn === stage) {
         setSelectedId(null);
       }
       return;
-    }
+    } else if (selectedId) setSelectedId(null);
 
-    // 2. ERASER & TEXT Logic
-    // Eraser is handled via interactions on the shapes themselves (in Board.jsx),
-    // Text is handled via interactions on the board click (in Board.jsx).
     if (tool === TOOLS.TEXT || tool === TOOLS.ERASER) return;
 
-    // 3. DRAWING Logic (Shapes & Pen)
     isDrawing.current = true;
     const id = uuidv4();
     currentShapeId.current = id;
@@ -257,13 +264,11 @@ export const useWhiteboard = (doc) => {
     const stage = e.target.getStage();
     const pos = getRelativePointerPosition(stage);
 
-    const yElements = doc.getArray("elements");
-    const arr = yElements.toArray();
-    const index = arr.findIndex((el) => el.id === currentShapeId.current);
+    const yElements = doc.getMap("elements");
+    const el = yElements.get(currentShapeId.current);
 
-    if (index === -1) return;
+    if (!el) return;
 
-    const el = arr[index];
     let updatedEl = null;
 
     if (tool === TOOLS.PEN) {
@@ -310,52 +315,57 @@ export const useWhiteboard = (doc) => {
     }
 
     if (updatedEl) {
-      // Optimization: For mouse move, we often don't want to create a million history steps
-      // But for Yjs synchronization, we usually just replace the item.
       doc.transact(() => {
-        yElements.delete(index, 1);
-        yElements.insert(index, [updatedEl]);
-      }, "move"); // 'move' origin can be used to filter local updates if needed
+        yElements.set(currentShapeId.current, updatedEl);
+      });
     }
   };
 
   const handleMouseUp = () => {
     if (isDrawing.current) {
       isDrawing.current = false;
+
+      //close the current action sequence
+      undoManager.current?.stopCapturing();
     }
     currentShapeId.current = null;
   };
 
-  // Dragging Logic for Selection
-  const handleDragEnd = (e, id) => {
-    // Prevent updating state if we just erased the object (edge case)
-    if (tool === TOOLS.ERASER) return;
+  const handleDragMove = useCallback(
+    (e, id) => {
+      if (tool === TOOLS.ERASER) return;
+      const { x, y } = e.target.position();
+      updateElementInYjs(id, { x, y });
+    },
+    [updateElementInYjs, tool],
+  );
 
-    const { x, y } = e.target.position();
-    updateElementInYjs(id, { x, y });
-  };
+  const handleDragEnd = useCallback(
+    (e, id) => {
+      if (tool === TOOLS.ERASER) return;
+
+      undoManager.current?.stopCapturing();
+      const { x, y } = e.target.position();
+      updateElementInYjs(id, { x, y });
+      undoManager.current?.stopCapturing();
+    },
+    [updateElementInYjs, tool],
+  );
 
   return {
-    tool,
-    setTool,
     elements,
-    strokeColor,
-    setStrokeColor,
-    strokeWidth,
-    setStrokeWidth,
-    fillColor,
-    setFillColor,
     selectedId,
     setSelectedId,
-    stageScale,
-    setStageScale,
     stagePos,
     setStagePos,
     handleMouseDown,
     handleMouseMove,
     handleMouseUp,
+    handleDragMove,
     handleDragEnd,
     removeElement,
     addTextElement,
+    undo,
+    redo,
   };
 };

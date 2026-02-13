@@ -1,4 +1,5 @@
 import { UserModel } from '../models/user.models.js';
+import { RoomModel } from '../models/room.models.js';
 import { generateTokenPair, verifyToken } from '../utils/jwt.js';
 import { ApiError } from '../utils/ApiError.js';
 import { ApiResponse } from '../utils/ApiResponse.js';

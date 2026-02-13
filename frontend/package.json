@@ -11,7 +11,6 @@
   },
   "dependencies": {
     "@hocuspocus/provider": "^3.4.4",
-    "@supabase/supabase-js": "^2.93.3",
     "@tailwindcss/vite": "^4.1.18",
     "axios": "^1.13.4",
     "konva": "^10.2.0",
@@ -22,6 +21,7 @@
     "react-router-dom": "^7.13.0",
     "tailwindcss": "^4.1.18",
     "uuid": "^13.0.0",
+    "y-indexeddb": "^9.0.12",
     "yjs": "^13.6.29"
   },
   "devDependencies": {

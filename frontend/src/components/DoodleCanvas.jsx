@@ -128,7 +128,6 @@ export default function DoodleCanvas() {
       
       ctx.fillStyle = "#111";
       ctx.font = "bold 28px 'Comic Sans MS', cursive";
-      ctx.fillText("✨ Create", 30, 60);
 
       // TOP RIGHT CORNER
       drawStar(w - 120, 80, 25);
@@ -142,7 +141,6 @@ export default function DoodleCanvas() {
       drawLine(w - 85, 375, w - 55, 375);
       
       ctx.font = "bold 26px 'Comic Sans MS', cursive";
-      ctx.fillText("Think 💭", w - 150, 35);
 
       // BOTTOM LEFT CORNER
       drawSpiral(100, h - 200, 35);
@@ -164,7 +162,6 @@ export default function DoodleCanvas() {
       ctx.stroke();
       
       ctx.font = "bold 24px 'Comic Sans MS', cursive";
-      ctx.fillText("Draw ✏️", 25, h - 30);
 
       // BOTTOM RIGHT CORNER
       drawCircle(w - 100, h - 180, 45);
@@ -190,7 +187,6 @@ export default function DoodleCanvas() {
       drawSquiggle(cupX + 8, cupY - 18, 20, 3, 0.3);
       
       ctx.font = "bold 25px 'Comic Sans MS', cursive";
-      ctx.fillText("Imagine 🎨", w - 180, h - 30);
 
       // CENTER DECORATIONS (around the login box)
       if (w > 600) {

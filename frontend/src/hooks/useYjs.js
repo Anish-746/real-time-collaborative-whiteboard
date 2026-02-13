@@ -1,20 +1,55 @@
-import { useEffect, useState } from 'react';
-import * as Y from 'yjs';
+import { useEffect, useMemo, useState } from "react";
+
+import * as Y from "yjs";
+import { HocuspocusProvider } from "@hocuspocus/provider";
+import { IndexeddbPersistence } from "y-indexeddb";
 
 export const useYjs = (roomId, token) => {
-  const [doc, setDoc] = useState(null);
+  const [doc] = useState(() => new Y.Doc());
+  const [synced, setSynced] = useState(false);
+
+  const provider = useMemo(() => {
+    if (!roomId || !token) return null;
+
+    return new HocuspocusProvider({
+      url: `${import.meta.env.VITE_WS_URL || "ws://localhost:5000"}`,
+      name: roomId,
+      document: doc,
+      token: token,
+
+      onSynced: () => {
+        setSynced(true);
+        console.log(`Connected to room: ${roomId}`);
+      },
+
+      onClose: () => {
+        setSynced(false);
+      },
+    });
+  }, [roomId, token, doc]);
 
   useEffect(() => {
-    if (!roomId || !token) return;
+    return () => {
+      if (provider) {
+        provider.destroy();
+      }
+    };
+  }, [provider]);
 
-    const ydoc = new Y.Doc();
+  // Offline Indexeddb persistence
+  useEffect(() => {
+    if (!roomId || !doc) return;
 
-    setDoc(ydoc);
+    const persistence = new IndexeddbPersistence(roomId, doc);
+
+    persistence.on("synced", () => {
+      console.log("Content loaded from local database");
+    });
 
     return () => {
-      ydoc.destroy();
+      persistence.destroy();
     };
-  }, [roomId, token]);
+  }, [roomId, doc]);
 
-  return { doc };
+  return { doc, provider, synced };
 };

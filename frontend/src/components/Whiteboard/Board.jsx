@@ -1,33 +1,63 @@
-import React, { useEffect, useState, useRef } from "react";
+import React, { useEffect, useState, useRef, useContext } from "react";
 import { Stage, Layer } from "react-konva";
 import { useWhiteboard, TOOLS } from "../../hooks/useWhiteboard";
 import Toolbar from "./Toolbar";
 import ShapeRenderer from "./ShapeRenderer.jsx";
+import WhiteboardContext from "../../context/WhiteboardContext.jsx";
+import AuthContext from "../../context/AuthContext.jsx";
+import CursorAwareness from "./CursorAwareness.jsx";
 
-const Board = ({ doc }) => {
+const getRandomColor = () =>
+  "#" + Math.floor(Math.random() * 16777215).toString(16);
+
+const Board = ({ doc, provider }) => {
+  const { user } = useContext(AuthContext);
+
   const {
-    tool,
-    setTool,
     elements,
-    strokeColor,
-    setStrokeColor,
-    strokeWidth,
-    setStrokeWidth,
-    fillColor,
-    setFillColor,
     selectedId,
     setSelectedId,
-    stageScale,
-    setStageScale,
     stagePos,
     setStagePos,
     handleMouseDown,
     handleMouseMove,
     handleMouseUp,
+    handleDragMove,
     handleDragEnd,
     removeElement,
     addTextElement,
+    undo,
+    redo,
   } = useWhiteboard(doc);
+
+  const { tool, stageScale, setStageScale, setTool, strokeColor } =
+    useContext(WhiteboardContext);
+
+  useEffect(() => {
+    if (!provider || !user) return;
+
+    const awareness = provider.awareness;
+
+    // Setting user details
+    awareness.setLocalStateField("user", {
+      name: user.username || "Anonymous",
+      color: getRandomColor(),
+    });
+  }, [provider, user]);
+
+  const handleStagePointerMove = (e) => {
+    handleMouseMove(e);
+
+    if (!provider) return;
+
+    const stage = e.target.getStage();
+    const transform = stage.getAbsoluteTransform().copy();
+    transform.invert();
+    const pos = transform.point(stage.getPointerPosition());
+
+    // Setting cursor details
+    provider.awareness.setLocalStateField("cursor", { x: pos.x, y: pos.y });
+  };
 
   const stageRef = useRef(null);
   const [size, setSize] = useState({
@@ -110,44 +140,25 @@ const Board = ({ doc }) => {
     setTool(TOOLS.SELECT);
   };
 
-  // Determine cursor style
   const getCursorStyle = () => {
     if (tool === TOOLS.SELECT) return "default";
     if (tool === TOOLS.TEXT) return "text";
-    if (tool === TOOLS.ERASER) return "crosshair"; // or 'not-allowed'
+    if (tool === TOOLS.ERASER) return "crosshair";
     return "crosshair";
   };
 
   return (
-    <div
-      style={{
-        position: "relative",
-        width: "100%",
-        height: "100%",
-        backgroundColor: "#f0f0f0",
-        overflow: "hidden",
-      }}
-    >
-      <Toolbar
-        activeTool={tool}
-        onSelectTool={setTool}
-        onDownload={handleDownload}
-        strokeColor={strokeColor}
-        setStrokeColor={setStrokeColor}
-        fillColor={fillColor}
-        setFillColor={setFillColor}
-        strokeWidth={strokeWidth}
-        setStrokeWidth={setStrokeWidth}
-      />
+    <div className="relative w-full h-full bg-[#f0f0f0] overflow-hidden">
+      <Toolbar onDownload={handleDownload} onUndo={undo} onRedo={redo} />
 
       <Stage
         width={size.width}
         height={size.height}
         onMouseDown={handleMouseDown}
-        onMousemove={handleMouseMove}
+        onMousemove={handleStagePointerMove}
         onMouseup={handleMouseUp}
         onTouchStart={handleMouseDown}
-        onTouchMove={handleMouseMove}
+        onTouchMove={handleStagePointerMove}
         onTouchEnd={handleMouseUp}
         onClick={handleStageClick}
         ref={stageRef}
@@ -173,9 +184,12 @@ const Board = ({ doc }) => {
               tool={tool}
               setSelectedId={setSelectedId}
               removeElement={removeElement}
+              handleDragMove={handleDragMove}
               handleDragEnd={handleDragEnd}
             />
           ))}
+
+          <CursorAwareness provider={provider} />
         </Layer>
       </Stage>
 
@@ -194,23 +208,11 @@ const Board = ({ doc }) => {
             }
           }}
           autoFocus
+          className="absolute m-0 p-1 min-w-12.5 bg-transparent border border-blue-600 outline-none resize-none overflow-hidden text-xl font-sans leading-tight z-1000"
           style={{
-            position: "absolute",
             top: textInput.y,
             left: textInput.x,
-            border: "1px solid blue",
-            margin: 0,
-            padding: "4px",
-            background: "transparent",
-            outline: "none",
-            resize: "none",
-            overflow: "hidden",
-            minWidth: "50px",
-            fontSize: "20px",
-            fontFamily: "sans-serif",
-            lineHeight: "1.2",
             color: strokeColor,
-            zIndex: 1000,
           }}
         />
       )}
