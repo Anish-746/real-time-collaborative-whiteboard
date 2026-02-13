@@ -9,7 +9,7 @@ import asyncHandler from '../utils/Asynchandler.js';
  * @access Protected
  */
 export const createRoom = asyncHandler(async (req, res) => {
-    const { name, accessType = 'public', password, maxUsers = 10, document } = req.body;
+    const { name, accessType = 'public', password, maxUsers = 10 } = req.body;
     const userId = req.user.id;
 
     // Validate access type
@@ -29,14 +29,8 @@ export const createRoom = asyncHandler(async (req, res) => {
         ownerId: userId,
         accessType,
         password,
-        maxUsers,
-        document
+        maxUsers
     });
-
-    // Convert document Buffer to base64 for response if it exists
-    if (room.document) {
-        room.document = Buffer.from(room.document).toString('base64');
-    }
 
     res.status(201).json(
         new ApiResponse(
@@ -148,15 +142,9 @@ export const getMyRooms = asyncHandler(async (req, res) => {
 
     const rooms = await RoomModel.getUserRooms(userId);
 
-    // Convert document Buffers to base64 for response
-    const roomsWithBase64 = rooms.map(room => ({
-        ...room,
-        document: room.document ? Buffer.from(room.document).toString('base64') : null
-    }));
-
     res.status(200).json(
         new ApiResponse(
-            { rooms: roomsWithBase64, count: roomsWithBase64.length },
+            { rooms, count: rooms.length },
             200,
             'Rooms retrieved successfully'
         )
