@@ -22,6 +22,7 @@ const ShapeRenderer = ({
   tool,
   setSelectedId,
   removeElement,
+  handleDragMove,
   handleDragEnd,
 }) => {
   const commonProps = {
@@ -52,9 +53,11 @@ const ShapeRenderer = ({
     },
 
     draggable: tool === TOOLS.SELECT,
+    onDragMove: (e) => handleDragMove(e, element.id),
     onDragEnd: (e) => handleDragEnd(e, element.id),
     stroke: element.stroke,
     strokeWidth: element.strokeWidth,
+    hitStrokeWidth: tool === TOOLS.ERASER ? 30 : Math.max(element.strokeWidth || 0, 15),
     shadowColor: "#4a90e2",
     shadowBlur: isSelected ? 10 : 0,
     shadowOpacity: isSelected ? 0.6 : 0,
@@ -65,6 +68,8 @@ const ShapeRenderer = ({
       return (
         <Line
           {...commonProps}
+          x={element.x || 0}
+          y={element.y || 0}
           points={element.points}
           tension={0.5}
           lineCap="round"
@@ -99,6 +104,8 @@ const ShapeRenderer = ({
       return (
         <Arrow
           {...commonProps}
+          x={element.x || 0}
+          y={element.y || 0}
           points={element.points}
           pointerLength={10}
           pointerWidth={10}
@@ -111,6 +118,8 @@ const ShapeRenderer = ({
       return (
         <Text
           {...commonProps}
+          stroke={null}
+          strokeWidth={null}
           x={element.x}
           y={element.y}
           text={element.text}
@@ -164,6 +173,8 @@ const ShapeRenderer = ({
       return (
         <Line
           {...commonProps}
+          x={element.x || 0}
+          y={element.y || 0}
           points={element.points}
           lineCap="round"
         />
